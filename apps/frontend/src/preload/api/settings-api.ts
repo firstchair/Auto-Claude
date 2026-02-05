@@ -44,6 +44,7 @@ export interface SettingsAPI {
   startWebServer: (port: number) => Promise<IPCResult<{ running: boolean; port?: number; url?: string; error?: string }>>;
   stopWebServer: () => Promise<IPCResult<void>>;
   getWebServerStatus: () => Promise<IPCResult<{ running: boolean; port?: number; url?: string; error?: string }>>;
+  checkWebServerPort: (port: number) => Promise<IPCResult<{ available: boolean; port: number }>>;
 }
 
 export const createSettingsAPI = (): SettingsAPI => ({
@@ -105,5 +106,8 @@ export const createSettingsAPI = (): SettingsAPI => ({
     ipcRenderer.invoke(IPC_CHANNELS.WEB_SERVER_STOP),
 
   getWebServerStatus: (): Promise<IPCResult<{ running: boolean; port?: number; url?: string; error?: string }>> =>
-    ipcRenderer.invoke(IPC_CHANNELS.WEB_SERVER_STATUS)
+    ipcRenderer.invoke(IPC_CHANNELS.WEB_SERVER_STATUS),
+
+  checkWebServerPort: (port: number): Promise<IPCResult<{ available: boolean; port: number }>> =>
+    ipcRenderer.invoke(IPC_CHANNELS.WEB_SERVER_CHECK_PORT, port)
 });

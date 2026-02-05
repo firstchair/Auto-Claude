@@ -51,7 +51,7 @@
     },
     "browserAccess": {
       "title": "Browser Access",
-      "description": "Access Auto Claude through your web browser"
+      "description": "Use Auto Claude in your browser"
     }
   },
   "apiProfiles": {
@@ -895,7 +895,7 @@
   },
   "browserAccess": {
     "title": "Browser Access",
-    "description": "Access Auto Claude through your web browser",
+    "description": "Use Auto Claude in your browser",
     "toggle": {
       "label": "Enable Browser Access",
       "description": "Start a local web server to access Auto Claude in your browser"
@@ -903,7 +903,10 @@
     "port": {
       "label": "Port",
       "description": "Port number for the local web server (1024-65535)",
-      "placeholder": "3000"
+      "placeholder": "3000",
+      "checking": "Checking...",
+      "available": "Available",
+      "inUse": "In use"
     },
     "status": {
       "label": "Status",

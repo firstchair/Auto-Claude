@@ -949,4 +949,44 @@ export function registerSettingsHandlers(
       }
     }
   );
+
+  /**
+   * Check if a port is available for use.
+   * This allows the UI to show port availability before attempting to start the server.
+   */
+  ipcMain.handle(
+    IPC_CHANNELS.WEB_SERVER_CHECK_PORT,
+    async (_, port: number): Promise<IPCResult<{ available: boolean; port: number }>> => {
+      try {
+        const webServerManager = getWebServerManager();
+
+        // Validate port number
+        if (!Number.isInteger(port) || port < 1024 || port > 65535) {
+          return {
+            success: true,
+            data: {
+              available: false,
+              port
+            }
+          };
+        }
+
+        const available = await webServerManager.checkPortAvailable(port);
+
+        return {
+          success: true,
+          data: {
+            available,
+            port
+          }
+        };
+      } catch (error) {
+        console.error('[WEB_SERVER_CHECK_PORT] Error:', error);
+        return {
+          success: false,
+          error: error instanceof Error ? error.message : 'Failed to check port availability'
+        };
+      }
+    }
+  );
 }

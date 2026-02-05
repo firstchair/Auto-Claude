@@ -104,7 +104,10 @@ function BrowserAccessSection({ settings, onSettingsChange, t }: BrowserAccessSe
   const [serverStatus, setServerStatus] = useState<WebServerStatus>({ running: false });
   const [isLoading, setIsLoading] = useState(false);
   const [copiedUrl, setCopiedUrl] = useState(false);
+  const [portAvailable, setPortAvailable] = useState<boolean | null>(null);
+  const [isCheckingPort, setIsCheckingPort] = useState(false);
   const pollIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const portCheckTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   // Default port if not set
   const defaultPort = 3000;
@@ -114,6 +117,53 @@ function BrowserAccessSection({ settings, onSettingsChange, t }: BrowserAccessSe
   const isValidPort = (port: number): boolean => {
     return port >= 1024 && port <= 65535;
   };
+
+  // Check port availability
+  const checkPortAvailability = useCallback(async (port: number) => {
+    if (!isValidPort(port)) {
+      setPortAvailable(null);
+      return;
+    }
+
+    setIsCheckingPort(true);
+    try {
+      const result = await window.electronAPI.checkWebServerPort(port);
+      if (result.success && result.data) {
+        setPortAvailable(result.data.available);
+      } else {
+        setPortAvailable(null);
+      }
+    } catch {
+      setPortAvailable(null);
+    } finally {
+      setIsCheckingPort(false);
+    }
+  }, []);
+
+  // Debounced port check when port changes
+  useEffect(() => {
+    // Don't check if server is running (port is in use by us)
+    if (serverStatus.running) {
+      setPortAvailable(null);
+      return;
+    }
+
+    // Clear any pending check
+    if (portCheckTimeoutRef.current) {
+      clearTimeout(portCheckTimeoutRef.current);
+    }
+
+    // Debounce the check by 500ms
+    portCheckTimeoutRef.current = setTimeout(() => {
+      checkPortAvailability(currentPort);
+    }, 500);
+
+    return () => {
+      if (portCheckTimeoutRef.current) {
+        clearTimeout(portCheckTimeoutRef.current);
+      }
+    };
+  }, [currentPort, serverStatus.running, checkPortAvailability]);
 
   // Fetch server status
   const fetchStatus = useCallback(async () => {
@@ -299,22 +349,42 @@ function BrowserAccessSection({ settings, onSettingsChange, t }: BrowserAccessSe
           <p className="text-sm text-muted-foreground">
             {t('browserAccess.port.description')}
           </p>
-          <Input
-            id="browserAccessPort"
-            type="number"
-            min={1024}
-            max={65535}
-            placeholder={t('browserAccess.port.placeholder')}
-            className="w-full max-w-xs"
-            value={currentPort}
-            onChange={(e) => {
-              const port = parseInt(e.target.value, 10);
-              if (!isNaN(port)) {
-                onSettingsChange({ ...settings, browserAccessPort: port });
-              }
-            }}
-            disabled={serverStatus.running || isLoading}
-          />
+          <div className="flex items-center gap-3">
+            <Input
+              id="browserAccessPort"
+              type="number"
+              min={1024}
+              max={65535}
+              placeholder={t('browserAccess.port.placeholder')}
+              className="w-full max-w-xs"
+              value={currentPort}
+              onChange={(e) => {
+                const port = parseInt(e.target.value, 10);
+                if (!isNaN(port)) {
+                  onSettingsChange({ ...settings, browserAccessPort: port });
+                }
+              }}
+              disabled={serverStatus.running || isLoading}
+            />
+            {/* Port availability indicator */}
+            {!serverStatus.running && isValidPort(currentPort) && (
+              <div className="flex items-center gap-2">
+                {isCheckingPort ? (
+                  <span className="text-sm text-muted-foreground">{t('browserAccess.port.checking')}</span>
+                ) : portAvailable === true ? (
+                  <div className="flex items-center gap-1.5">
+                    <div className="w-2 h-2 rounded-full bg-green-500" />
+                    <span className="text-sm text-green-600">{t('browserAccess.port.available')}</span>
+                  </div>
+                ) : portAvailable === false ? (
+                  <div className="flex items-center gap-1.5">
+                    <div className="w-2 h-2 rounded-full bg-red-500" />
+                    <span className="text-sm text-red-600">{t('browserAccess.port.inUse')}</span>
+                  </div>
+                ) : null}
+              </div>
+            )}
+          </div>
           {!isValidPort(currentPort) && (
             <p className="text-sm text-destructive">
               {t('browserAccess.errors.invalidPort')}

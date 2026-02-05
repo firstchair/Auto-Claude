@@ -582,5 +582,6 @@ export const IPC_CHANNELS = {
   // Web server operations (browser-based editing)
   WEB_SERVER_START: 'webServer:start',    // Start the web server for browser editing
   WEB_SERVER_STOP: 'webServer:stop',      // Stop the web server
-  WEB_SERVER_STATUS: 'webServer:status'   // Get current web server status
+  WEB_SERVER_STATUS: 'webServer:status',  // Get current web server status
+  WEB_SERVER_CHECK_PORT: 'webServer:checkPort'  // Check if a port is available
 } as const;

@@ -51,7 +51,7 @@
     },
     "browserAccess": {
       "title": "Accès navigateur",
-      "description": "Accéder à Auto Claude via votre navigateur web"
+      "description": "Utiliser Auto Claude dans le navigateur"
     }
   },
   "apiProfiles": {
@@ -895,7 +895,7 @@
   },
   "browserAccess": {
     "title": "Accès navigateur",
-    "description": "Accéder à Auto Claude via votre navigateur web",
+    "description": "Utiliser Auto Claude dans le navigateur",
     "toggle": {
       "label": "Activer l'accès navigateur",
       "description": "Démarrer un serveur web local pour accéder à Auto Claude dans votre navigateur"
@@ -903,7 +903,10 @@
     "port": {
       "label": "Port",
       "description": "Numéro de port pour le serveur web local (1024-65535)",
-      "placeholder": "3000"
+      "placeholder": "3000",
+      "checking": "Vérification...",
+      "available": "Disponible",
+      "inUse": "En cours d'utilisation"
     },
     "status": {
       "label": "Statut",

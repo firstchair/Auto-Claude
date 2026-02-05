@@ -190,7 +190,7 @@ export class WebServerManager {
    * @param port - Port number to check
    * @returns true if port is available, false if in use
    */
-  private checkPortAvailable(port: number): Promise<boolean> {
+  checkPortAvailable(port: number): Promise<boolean> {
     return new Promise((resolve) => {
       const testServer = net.createServer();
 
