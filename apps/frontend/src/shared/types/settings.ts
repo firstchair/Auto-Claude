@@ -298,6 +298,14 @@ export interface AppSettings {
   sidebarCollapsed?: boolean;
 }
 
+// Web server status for browser access feature
+export interface WebServerStatus {
+  running: boolean;
+  port?: number;
+  url?: string;
+  error?: string;
+}
+
 // Auto-Claude Source Environment Configuration (for auto-claude repo .env)
 export interface SourceEnvConfig {
   // Claude Authentication (required for ideation, roadmap generation, etc.)
