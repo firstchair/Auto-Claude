@@ -16,6 +16,7 @@ import type {
   SourceEnvConfig,
   SourceEnvCheckResult
 } from '../../shared/types';
+import { getWebServerManager, type WebServerStatus } from '../web-server-manager';
 import { AgentManager } from '../agent';
 import type { BrowserWindow } from 'electron';
 import { setUpdateChannel, setUpdateChannelWithDowngradeCheck } from '../app-updater';
@@ -863,6 +864,87 @@ export function registerSettingsHandlers(
         return {
           success: false,
           error: error instanceof Error ? error.message : 'Failed to set spell check languages'
+        };
+      }
+    }
+  );
+
+  // ============================================
+  // Web Server Operations
+  // ============================================
+
+  /**
+   * Start the web server for browser-based access to the application.
+   * Server binds to localhost only (127.0.0.1) for security.
+   */
+  ipcMain.handle(
+    IPC_CHANNELS.WEB_SERVER_START,
+    async (_, port: number): Promise<IPCResult<WebServerStatus>> => {
+      try {
+        const webServerManager = getWebServerManager();
+        const status = await webServerManager.start(port);
+
+        if (!status.running && status.error) {
+          return {
+            success: false,
+            error: status.error
+          };
+        }
+
+        return {
+          success: true,
+          data: status
+        };
+      } catch (error) {
+        console.error('[WEB_SERVER_START] Error:', error);
+        return {
+          success: false,
+          error: error instanceof Error ? error.message : 'Failed to start web server'
+        };
+      }
+    }
+  );
+
+  /**
+   * Stop the web server.
+   */
+  ipcMain.handle(
+    IPC_CHANNELS.WEB_SERVER_STOP,
+    async (): Promise<IPCResult<void>> => {
+      try {
+        const webServerManager = getWebServerManager();
+        await webServerManager.stop();
+
+        return { success: true };
+      } catch (error) {
+        console.error('[WEB_SERVER_STOP] Error:', error);
+        return {
+          success: false,
+          error: error instanceof Error ? error.message : 'Failed to stop web server'
+        };
+      }
+    }
+  );
+
+  /**
+   * Get the current web server status.
+   */
+  ipcMain.handle(
+    IPC_CHANNELS.WEB_SERVER_STATUS,
+    async (): Promise<IPCResult<WebServerStatus>> => {
+      try {
+        const webServerManager = getWebServerManager();
+        const status = webServerManager.getStatus();
+
+        return {
+          success: true,
+          data: status
+        };
+      } catch (error) {
+        console.error('[WEB_SERVER_STATUS] Error:', error);
+        return {
+          success: false,
+          error: error instanceof Error ? error.message : 'Failed to get web server status'
         };
       }
     }
