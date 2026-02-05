@@ -1,7 +1,10 @@
 import { useTranslation } from 'react-i18next';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
+import { Copy, Check } from 'lucide-react';
+import { useToast } from '../../hooks/use-toast';
 import { Label } from '../ui/label';
 import { Input } from '../ui/input';
+import { Button } from '../ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
 import { Switch } from '../ui/switch';
 import { SettingsSection } from './SettingsSection';
@@ -18,13 +21,14 @@ import type {
   FeatureModelConfig,
   ModelTypeShort,
   ThinkingLevel,
-  ToolDetectionResult
+  ToolDetectionResult,
+  WebServerStatus
 } from '../../../shared/types';
 
 interface GeneralSettingsProps {
   settings: AppSettings;
   onSettingsChange: (settings: AppSettings) => void;
-  section: 'agent' | 'paths';
+  section: 'agent' | 'paths' | 'browserAccess';
 }
 
 /**
@@ -83,6 +87,358 @@ function ToolDetectionDisplay({ info, isLoading, t }: ToolDetectionDisplayProps)
         {getSourceLabel(info.source)}
       </div>
     </div>
+  );
+}
+
+/**
+ * Browser Access section component with server control logic
+ */
+interface BrowserAccessSectionProps {
+  settings: AppSettings;
+  onSettingsChange: (settings: AppSettings) => void;
+  t: (key: string, options?: Record<string, unknown>) => string;
+}
+
+function BrowserAccessSection({ settings, onSettingsChange, t }: BrowserAccessSectionProps) {
+  const { toast } = useToast();
+  const [serverStatus, setServerStatus] = useState<WebServerStatus>({ running: false });
+  const [isLoading, setIsLoading] = useState(false);
+  const [copiedUrl, setCopiedUrl] = useState(false);
+  const [portAvailable, setPortAvailable] = useState<boolean | null>(null);
+  const [isCheckingPort, setIsCheckingPort] = useState(false);
+  const pollIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const portCheckTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Default port if not set
+  const defaultPort = 3000;
+  const currentPort = settings.browserAccessPort ?? defaultPort;
+
+  // Port validation helper
+  const isValidPort = (port: number): boolean => {
+    return port >= 1024 && port <= 65535;
+  };
+
+  // Check port availability
+  const checkPortAvailability = useCallback(async (port: number) => {
+    if (!isValidPort(port)) {
+      setPortAvailable(null);
+      return;
+    }
+
+    setIsCheckingPort(true);
+    try {
+      const result = await window.electronAPI.checkWebServerPort(port);
+      if (result.success && result.data) {
+        setPortAvailable(result.data.available);
+      } else {
+        setPortAvailable(null);
+      }
+    } catch {
+      setPortAvailable(null);
+    } finally {
+      setIsCheckingPort(false);
+    }
+  }, []);
+
+  // Debounced port check when port changes
+  useEffect(() => {
+    // Don't check if server is running (port is in use by us)
+    if (serverStatus.running) {
+      setPortAvailable(null);
+      return;
+    }
+
+    // Clear any pending check
+    if (portCheckTimeoutRef.current) {
+      clearTimeout(portCheckTimeoutRef.current);
+    }
+
+    // Debounce the check by 500ms
+    portCheckTimeoutRef.current = setTimeout(() => {
+      checkPortAvailability(currentPort);
+    }, 500);
+
+    return () => {
+      if (portCheckTimeoutRef.current) {
+        clearTimeout(portCheckTimeoutRef.current);
+      }
+    };
+  }, [currentPort, serverStatus.running, checkPortAvailability]);
+
+  // Fetch server status
+  const fetchStatus = useCallback(async () => {
+    try {
+      const result = await window.electronAPI.getWebServerStatus();
+      if (result.success && result.data) {
+        setServerStatus(result.data);
+      }
+    } catch {
+      // Silently fail - status will be updated on next poll
+    }
+  }, []);
+
+  // Start server
+  const startServer = useCallback(async (port: number) => {
+    setIsLoading(true);
+    try {
+      const result = await window.electronAPI.startWebServer(port);
+      if (result.success && result.data) {
+        setServerStatus(result.data);
+        if (result.data.error) {
+          // Server returned with an error
+          toast({
+            variant: 'destructive',
+            title: t('browserAccess.errors.startFailed', { error: result.data.error }),
+          });
+          // Revert the toggle
+          onSettingsChange({ ...settings, browserAccessEnabled: false });
+        }
+      } else {
+        // IPC call failed
+        toast({
+          variant: 'destructive',
+          title: t('browserAccess.errors.startFailed', { error: result.error || 'Unknown error' }),
+        });
+        // Revert the toggle
+        onSettingsChange({ ...settings, browserAccessEnabled: false });
+      }
+    } catch (error) {
+      toast({
+        variant: 'destructive',
+        title: t('browserAccess.errors.startFailed', { error: error instanceof Error ? error.message : 'Unknown error' }),
+      });
+      // Revert the toggle
+      onSettingsChange({ ...settings, browserAccessEnabled: false });
+    } finally {
+      setIsLoading(false);
+    }
+  }, [toast, t, onSettingsChange, settings]);
+
+  // Stop server
+  const stopServer = useCallback(async () => {
+    setIsLoading(true);
+    try {
+      const result = await window.electronAPI.stopWebServer();
+      if (result.success) {
+        setServerStatus({ running: false });
+      } else {
+        toast({
+          variant: 'destructive',
+          title: t('browserAccess.errors.stopFailed', { error: result.error || 'Unknown error' }),
+        });
+        // Revert the toggle
+        onSettingsChange({ ...settings, browserAccessEnabled: true });
+      }
+    } catch (error) {
+      toast({
+        variant: 'destructive',
+        title: t('browserAccess.errors.stopFailed', { error: error instanceof Error ? error.message : 'Unknown error' }),
+      });
+      // Revert the toggle
+      onSettingsChange({ ...settings, browserAccessEnabled: true });
+    } finally {
+      setIsLoading(false);
+    }
+  }, [toast, t, onSettingsChange, settings]);
+
+  // Handle toggle change
+  const handleToggleChange = useCallback(async (checked: boolean) => {
+    if (!isValidPort(currentPort)) {
+      toast({
+        variant: 'destructive',
+        title: t('browserAccess.errors.invalidPort'),
+      });
+      return;
+    }
+
+    // Update settings first (optimistic UI)
+    onSettingsChange({ ...settings, browserAccessEnabled: checked });
+
+    if (checked) {
+      await startServer(currentPort);
+    } else {
+      await stopServer();
+    }
+  }, [currentPort, onSettingsChange, settings, startServer, stopServer, t, toast]);
+
+  // Copy URL to clipboard
+  const handleCopyUrl = useCallback(async () => {
+    if (serverStatus.url) {
+      try {
+        await navigator.clipboard.writeText(serverStatus.url);
+        setCopiedUrl(true);
+        toast({
+          title: t('browserAccess.copyUrl.copied'),
+        });
+        // Reset copy state after 2 seconds
+        setTimeout(() => setCopiedUrl(false), 2000);
+      } catch {
+        // Clipboard API failed
+      }
+    }
+  }, [serverStatus.url, toast, t]);
+
+  // Fetch status on mount
+  useEffect(() => {
+    fetchStatus();
+  }, [fetchStatus]);
+
+  // Set up polling when server is running
+  useEffect(() => {
+    if (serverStatus.running) {
+      // Poll every 5 seconds when running
+      pollIntervalRef.current = setInterval(fetchStatus, 5000);
+    } else {
+      // Clear interval when not running
+      if (pollIntervalRef.current) {
+        clearInterval(pollIntervalRef.current);
+        pollIntervalRef.current = null;
+      }
+    }
+
+    return () => {
+      if (pollIntervalRef.current) {
+        clearInterval(pollIntervalRef.current);
+        pollIntervalRef.current = null;
+      }
+    };
+  }, [serverStatus.running, fetchStatus]);
+
+  // Get status text
+  const getStatusText = (): string => {
+    if (isLoading) {
+      return settings.browserAccessEnabled
+        ? t('browserAccess.status.starting')
+        : t('browserAccess.status.stopping');
+    }
+    if (serverStatus.running && serverStatus.url) {
+      return `${t('browserAccess.status.running')} ${serverStatus.url}`;
+    }
+    return t('browserAccess.status.stopped');
+  };
+
+  return (
+    <SettingsSection
+      title={t('browserAccess.title')}
+      description={t('browserAccess.description')}
+    >
+      <div className="space-y-6">
+        {/* Enable/Disable Toggle */}
+        <div className="flex items-center justify-between p-4 rounded-lg border border-border max-w-md">
+          <div className="space-y-1">
+            <Label htmlFor="browserAccessEnabled" className="font-medium text-foreground">
+              {t('browserAccess.toggle.label')}
+            </Label>
+            <p className="text-sm text-muted-foreground">
+              {t('browserAccess.toggle.description')}
+            </p>
+          </div>
+          <Switch
+            id="browserAccessEnabled"
+            checked={settings.browserAccessEnabled ?? false}
+            onCheckedChange={handleToggleChange}
+            disabled={isLoading}
+          />
+        </div>
+
+        {/* Port Configuration */}
+        <div className="space-y-3">
+          <Label htmlFor="browserAccessPort" className="text-sm font-medium text-foreground">
+            {t('browserAccess.port.label')}
+          </Label>
+          <p className="text-sm text-muted-foreground">
+            {t('browserAccess.port.description')}
+          </p>
+          <div className="flex items-center gap-3">
+            <Input
+              id="browserAccessPort"
+              type="number"
+              min={1024}
+              max={65535}
+              placeholder={t('browserAccess.port.placeholder')}
+              className="w-full max-w-xs"
+              value={currentPort}
+              onChange={(e) => {
+                const port = parseInt(e.target.value, 10);
+                if (!isNaN(port)) {
+                  onSettingsChange({ ...settings, browserAccessPort: port });
+                }
+              }}
+              disabled={serverStatus.running || isLoading}
+            />
+            {/* Port availability indicator */}
+            {!serverStatus.running && isValidPort(currentPort) && (
+              <div className="flex items-center gap-2">
+                {isCheckingPort ? (
+                  <span className="text-sm text-muted-foreground">{t('browserAccess.port.checking')}</span>
+                ) : portAvailable === true ? (
+                  <div className="flex items-center gap-1.5">
+                    <div className="w-2 h-2 rounded-full bg-green-500" />
+                    <span className="text-sm text-green-600">{t('browserAccess.port.available')}</span>
+                  </div>
+                ) : portAvailable === false ? (
+                  <div className="flex items-center gap-1.5">
+                    <div className="w-2 h-2 rounded-full bg-red-500" />
+                    <span className="text-sm text-red-600">{t('browserAccess.port.inUse')}</span>
+                  </div>
+                ) : null}
+              </div>
+            )}
+          </div>
+          {!isValidPort(currentPort) && (
+            <p className="text-sm text-destructive">
+              {t('browserAccess.errors.invalidPort')}
+            </p>
+          )}
+        </div>
+
+        {/* Status Display */}
+        <div className="space-y-3">
+          <Label className="text-sm font-medium text-foreground">
+            {t('browserAccess.status.label')}
+          </Label>
+          <div className="flex items-center gap-3 p-3 rounded-lg bg-muted/50 max-w-md">
+            {/* Status indicator dot */}
+            <div
+              className={`w-2 h-2 rounded-full ${
+                serverStatus.running
+                  ? 'bg-green-500'
+                  : isLoading
+                    ? 'bg-yellow-500 animate-pulse'
+                    : 'bg-muted-foreground'
+              }`}
+            />
+            <div className="flex-1">
+              <span className={`text-sm ${serverStatus.running ? 'text-foreground' : 'text-muted-foreground'}`}>
+                {getStatusText()}
+              </span>
+            </div>
+            {/* Copy URL button - only show when running */}
+            {serverStatus.running && serverStatus.url && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={handleCopyUrl}
+                className="h-8 px-2"
+              >
+                {copiedUrl ? (
+                  <Check className="h-4 w-4 text-green-500" />
+                ) : (
+                  <Copy className="h-4 w-4" />
+                )}
+                <span className="ml-1.5">{t('browserAccess.copyUrl.label')}</span>
+              </Button>
+            )}
+          </div>
+          {/* Error display */}
+          {serverStatus.error && (
+            <p className="text-sm text-destructive">
+              {serverStatus.error}
+            </p>
+          )}
+        </div>
+      </div>
+    </SettingsSection>
   );
 }
 
@@ -241,6 +597,17 @@ export function GeneralSettings({ settings, onSettingsChange, section }: General
           </div>
         </SettingsSection>
       </div>
+    );
+  }
+
+  // Browser Access section
+  if (section === 'browserAccess') {
+    return (
+      <BrowserAccessSection
+        settings={settings}
+        onSettingsChange={onSettingsChange}
+        t={t}
+      />
     );
   }
 
