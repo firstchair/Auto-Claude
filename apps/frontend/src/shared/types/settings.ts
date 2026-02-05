@@ -289,6 +289,9 @@ export interface AppSettings {
   sentryEnabled?: boolean;
   // Auto-name Claude terminals based on initial message (only triggers once per session)
   autoNameClaudeTerminals?: boolean;
+  // Browser access settings for remote browser-based editing
+  browserAccessEnabled?: boolean;
+  browserAccessPort?: number;
   // Track which version warnings have been shown (e.g., ["2.7.5"])
   seenVersionWarnings?: string[];
   // Sidebar collapsed state (icons only when true)
