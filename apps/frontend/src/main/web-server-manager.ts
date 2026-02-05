@@ -5,6 +5,7 @@
 
 import express, { type Express } from 'express';
 import type { Server } from 'http';
+import net from 'net';
 import path from 'path';
 import { app } from 'electron';
 import { is } from '@electron-toolkit/utils';
@@ -46,6 +47,15 @@ export class WebServerManager {
       return {
         running: false,
         error: `Invalid port number. Port must be between ${MIN_PORT} and ${MAX_PORT}.`
+      };
+    }
+
+    // Check if port is available before attempting to start
+    const portAvailable = await this.checkPortAvailable(port);
+    if (!portAvailable) {
+      return {
+        running: false,
+        error: `Port ${port} is already in use. Please choose another port.`
       };
     }
 
@@ -173,6 +183,36 @@ export class WebServerManager {
    */
   private isValidPort(port: number): boolean {
     return Number.isInteger(port) && port >= MIN_PORT && port <= MAX_PORT;
+  }
+
+  /**
+   * Check if a port is available for use
+   * @param port - Port number to check
+   * @returns true if port is available, false if in use
+   */
+  private checkPortAvailable(port: number): Promise<boolean> {
+    return new Promise((resolve) => {
+      const testServer = net.createServer();
+
+      testServer.once('error', (err: NodeJS.ErrnoException) => {
+        if (err.code === 'EADDRINUSE') {
+          resolve(false);
+        } else {
+          // Other errors (e.g., EACCES) - treat as unavailable
+          resolve(false);
+        }
+      });
+
+      testServer.once('listening', () => {
+        // Port is available, close the test server
+        testServer.close(() => {
+          resolve(true);
+        });
+      });
+
+      // Try to listen on the port (localhost only)
+      testServer.listen(port, '127.0.0.1');
+    });
   }
 
   /**
