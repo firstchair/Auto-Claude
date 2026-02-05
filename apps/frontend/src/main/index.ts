@@ -56,6 +56,7 @@ import { initializeClaudeProfileManager, getClaudeProfileManager } from './claud
 import { isProfileAuthenticated } from './claude-profile/profile-utils';
 import { isMacOS, isWindows } from './platform';
 import { ptyDaemonClient } from './terminal/pty-daemon-client';
+import { getWebServerManager, type WebServerManager } from './web-server-manager';
 import type { AppSettings, AuthFailureInfo } from '../shared/types';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -142,6 +143,7 @@ function getIconPath(): string {
 let mainWindow: BrowserWindow | null = null;
 let agentManager: AgentManager | null = null;
 let terminalManager: TerminalManager | null = null;
+let webServerManager: WebServerManager | null = null;
 
 // Re-entrancy guard for before-quit handler.
 // The first before-quit call pauses quit for async cleanup, then calls app.quit() again.
@@ -468,6 +470,9 @@ app.whenReady().then(() => {
   // Initialize terminal manager
   terminalManager = new TerminalManager(() => mainWindow);
 
+  // Initialize web server manager (for browser access feature)
+  webServerManager = getWebServerManager();
+
   // Setup IPC handlers (pass pythonEnvManager for Python path management)
   setupIpcHandlers(agentManager, terminalManager, () => mainWindow, pythonEnvManager);
 
@@ -631,6 +636,12 @@ app.on('before-quit', (event) => {
       // Kill all terminal processes — waits for PTY exit with bounded timeout
       if (terminalManager) {
         await terminalManager.killAll();
+      }
+
+      // Stop web server if running
+      if (webServerManager) {
+        await webServerManager.stop();
+        console.warn('[main] Web server stopped');
       }
 
       // Shut down PTY daemon client AFTER terminal cleanup completes,
