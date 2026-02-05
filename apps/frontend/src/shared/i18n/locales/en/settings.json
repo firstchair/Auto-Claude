@@ -48,6 +48,10 @@
     "terminal-fonts": {
       "title": "Terminal Fonts",
       "description": "Customize terminal font appearance"
+    },
+    "browserAccess": {
+      "title": "Browser Access",
+      "description": "Access Auto Claude through your web browser"
     }
   },
   "apiProfiles": {
@@ -887,6 +891,36 @@
     "pr_template_filler": {
       "label": "PR Template Filler",
       "description": "AI-fills GitHub PR templates from code changes"
+    }
+  },
+  "browserAccess": {
+    "title": "Browser Access",
+    "description": "Access Auto Claude through your web browser",
+    "toggle": {
+      "label": "Enable Browser Access",
+      "description": "Start a local web server to access Auto Claude in your browser"
+    },
+    "port": {
+      "label": "Port",
+      "description": "Port number for the local web server (1024-65535)",
+      "placeholder": "3000"
+    },
+    "status": {
+      "label": "Status",
+      "running": "Running at",
+      "stopped": "Stopped",
+      "starting": "Starting...",
+      "stopping": "Stopping..."
+    },
+    "copyUrl": {
+      "label": "Copy URL",
+      "copied": "URL copied to clipboard"
+    },
+    "errors": {
+      "portInUse": "Port {{port}} is already in use. Please choose another port.",
+      "invalidPort": "Port must be between 1024 and 65535",
+      "startFailed": "Failed to start web server: {{error}}",
+      "stopFailed": "Failed to stop web server: {{error}}"
     }
   }
 }

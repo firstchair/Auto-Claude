@@ -48,6 +48,10 @@
     "terminal-fonts": {
       "title": "Polices de terminal",
       "description": "Personnaliser l'apparence des polices de terminal"
+    },
+    "browserAccess": {
+      "title": "Accès navigateur",
+      "description": "Accéder à Auto Claude via votre navigateur web"
     }
   },
   "apiProfiles": {
@@ -887,6 +891,36 @@
     "pr_template_filler": {
       "label": "Remplisseur de modèle PR",
       "description": "Remplit intelligemment les modèles de PR GitHub à partir des changements de code"
+    }
+  },
+  "browserAccess": {
+    "title": "Accès navigateur",
+    "description": "Accéder à Auto Claude via votre navigateur web",
+    "toggle": {
+      "label": "Activer l'accès navigateur",
+      "description": "Démarrer un serveur web local pour accéder à Auto Claude dans votre navigateur"
+    },
+    "port": {
+      "label": "Port",
+      "description": "Numéro de port pour le serveur web local (1024-65535)",
+      "placeholder": "3000"
+    },
+    "status": {
+      "label": "Statut",
+      "running": "En cours sur",
+      "stopped": "Arrêté",
+      "starting": "Démarrage...",
+      "stopping": "Arrêt..."
+    },
+    "copyUrl": {
+      "label": "Copier l'URL",
+      "copied": "URL copiée dans le presse-papiers"
+    },
+    "errors": {
+      "portInUse": "Le port {{port}} est déjà utilisé. Veuillez choisir un autre port.",
+      "invalidPort": "Le port doit être entre 1024 et 65535",
+      "startFailed": "Échec du démarrage du serveur web : {{error}}",
+      "stopFailed": "Échec de l'arrêt du serveur web : {{error}}"
     }
   }
 }
