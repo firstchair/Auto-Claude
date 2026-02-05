@@ -577,5 +577,10 @@ export const IPC_CHANNELS = {
   // Queue routing events (main -> renderer)
   QUEUE_PROFILE_SWAPPED: 'queue:profileSwapped',      // Task switched to different profile
   QUEUE_SESSION_CAPTURED: 'queue:sessionCaptured',    // Session ID captured from running task
-  QUEUE_BLOCKED_NO_PROFILES: 'queue:blockedNoProfiles' // All profiles unavailable
+  QUEUE_BLOCKED_NO_PROFILES: 'queue:blockedNoProfiles', // All profiles unavailable
+
+  // Web server operations (browser-based editing)
+  WEB_SERVER_START: 'webServer:start',    // Start the web server for browser editing
+  WEB_SERVER_STOP: 'webServer:stop',      // Stop the web server
+  WEB_SERVER_STATUS: 'webServer:status'   // Get current web server status
 } as const;
