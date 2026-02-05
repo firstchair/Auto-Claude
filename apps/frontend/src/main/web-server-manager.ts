@@ -3,8 +3,8 @@
  * Manages Express.js server lifecycle for browser access to the application
  */
 
-import express, { type Express } from 'express';
-import type { Server } from 'http';
+import express, { type Express, type Request, type Response } from 'express';
+import http, { type Server, type IncomingMessage } from 'http';
 import net from 'net';
 import path from 'path';
 import { app } from 'electron';
@@ -68,16 +68,28 @@ export class WebServerManager {
       // Create Express application
       this.expressApp = express();
 
-      // Get static files path
-      const staticPath = this.getStaticPath();
+      // In development mode, proxy to the Vite dev server
+      // In production mode, serve static files
+      if (is.dev && process.env['ELECTRON_RENDERER_URL']) {
+        const viteUrl = new URL(process.env['ELECTRON_RENDERER_URL']);
+        console.log(`[WebServerManager] Dev mode: proxying to Vite dev server at ${viteUrl.href}`);
 
-      // Serve static files from renderer output
-      this.expressApp.use(express.static(staticPath));
+        // Proxy all requests to the Vite dev server
+        this.expressApp.use((req: Request, res: Response) => {
+          this.proxyToVite(req, res, viteUrl);
+        });
+      } else {
+        // Production mode: serve static files
+        const staticPath = this.getStaticPath();
 
-      // Fallback to index.html for SPA routing
-      this.expressApp.get('*', (_req, res) => {
-        res.sendFile(path.join(staticPath, 'index.html'));
-      });
+        // Serve static files from renderer output
+        this.expressApp.use(express.static(staticPath));
+
+        // Fallback to index.html for SPA routing
+        this.expressApp.get('*', (_req, res) => {
+          res.sendFile(path.join(staticPath, 'index.html'));
+        });
+      }
 
       // Start server bound to localhost only (security requirement)
       return await new Promise<WebServerStatus>((resolve) => {
@@ -114,6 +126,42 @@ export class WebServerManager {
         error: error instanceof Error ? error.message : 'Unknown error starting server'
       };
     }
+  }
+
+  /**
+   * Proxy request to Vite dev server (for development mode)
+   * @param req - Express request
+   * @param res - Express response
+   * @param viteUrl - Vite dev server URL
+   */
+  private proxyToVite(req: Request, res: Response, viteUrl: URL): void {
+    const options = {
+      hostname: viteUrl.hostname,
+      port: viteUrl.port || (viteUrl.protocol === 'https:' ? 443 : 80),
+      path: req.url,
+      method: req.method,
+      headers: {
+        ...req.headers,
+        host: viteUrl.host
+      }
+    };
+
+    const proxyReq = http.request(options, (proxyRes: IncomingMessage) => {
+      // Copy status code and headers
+      res.writeHead(proxyRes.statusCode || 200, proxyRes.headers as { [key: string]: string | string[] | undefined });
+      // Pipe the response
+      proxyRes.pipe(res);
+    });
+
+    proxyReq.on('error', (error) => {
+      console.error('[WebServerManager] Proxy error:', error.message);
+      if (!res.headersSent) {
+        res.status(502).send(`Proxy error: ${error.message}`);
+      }
+    });
+
+    // Pipe the request body
+    req.pipe(proxyReq);
   }
 
   /**
@@ -187,30 +235,83 @@ export class WebServerManager {
 
   /**
    * Check if a port is available for use
+   * Uses connection-based approach to detect if anything is listening on the port
+   * This is more reliable than bind-based checking as it detects services on any interface
    * @param port - Port number to check
    * @returns true if port is available, false if in use
    */
   checkPortAvailable(port: number): Promise<boolean> {
     return new Promise((resolve) => {
-      const testServer = net.createServer();
+      // First, try to connect to the port to see if anything is listening
+      // This catches services listening on any interface (0.0.0.0, ::, 127.0.0.1, etc.)
+      const socket = new net.Socket();
+      let resolved = false;
 
-      testServer.once('error', (err: NodeJS.ErrnoException) => {
-        if (err.code === 'EADDRINUSE') {
-          resolve(false);
-        } else {
-          // Other errors (e.g., EACCES) - treat as unavailable
+      const cleanup = () => {
+        socket.removeAllListeners();
+        socket.destroy();
+      };
+
+      socket.setTimeout(1000); // 1 second timeout
+
+      socket.once('connect', () => {
+        // Something is listening on this port
+        if (!resolved) {
+          resolved = true;
+          cleanup();
           resolve(false);
         }
       });
 
+      socket.once('timeout', () => {
+        // Connection timed out - likely nothing listening
+        if (!resolved) {
+          resolved = true;
+          cleanup();
+          // Do a bind check as backup
+          this.checkPortBindable(port).then(resolve);
+        }
+      });
+
+      socket.once('error', (err: NodeJS.ErrnoException) => {
+        if (!resolved) {
+          resolved = true;
+          cleanup();
+          if (err.code === 'ECONNREFUSED') {
+            // Connection refused means nothing is listening - port is available
+            // But still do a bind check to be sure
+            this.checkPortBindable(port).then(resolve);
+          } else {
+            // Other errors - treat as unavailable for safety
+            resolve(false);
+          }
+        }
+      });
+
+      // Try to connect to localhost on the port
+      socket.connect(port, '127.0.0.1');
+    });
+  }
+
+  /**
+   * Check if we can bind to a port (secondary check after connection test)
+   * @param port - Port number to check
+   * @returns true if port can be bound, false otherwise
+   */
+  private checkPortBindable(port: number): Promise<boolean> {
+    return new Promise((resolve) => {
+      const testServer = net.createServer();
+
+      testServer.once('error', () => {
+        resolve(false);
+      });
+
       testServer.once('listening', () => {
-        // Port is available, close the test server
         testServer.close(() => {
           resolve(true);
         });
       });
 
-      // Try to listen on the port (localhost only)
       testServer.listen(port, '127.0.0.1');
     });
   }
