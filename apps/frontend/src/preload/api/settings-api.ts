@@ -39,6 +39,11 @@ export interface SettingsAPI {
 
   // Spell check
   setSpellCheckLanguages: (language: string) => Promise<IPCResult<{ success: boolean }>>;
+
+  // Web Server
+  startWebServer: (port: number) => Promise<IPCResult<{ running: boolean; port?: number; url?: string; error?: string }>>;
+  stopWebServer: () => Promise<IPCResult<void>>;
+  getWebServerStatus: () => Promise<IPCResult<{ running: boolean; port?: number; url?: string; error?: string }>>;
 }
 
 export const createSettingsAPI = (): SettingsAPI => ({
@@ -90,5 +95,15 @@ export const createSettingsAPI = (): SettingsAPI => ({
 
   // Spell check - sync spell checker language with app language
   setSpellCheckLanguages: (language: string): Promise<IPCResult<{ success: boolean }>> =>
-    ipcRenderer.invoke(IPC_CHANNELS.SPELLCHECK_SET_LANGUAGES, language)
+    ipcRenderer.invoke(IPC_CHANNELS.SPELLCHECK_SET_LANGUAGES, language),
+
+  // Web Server - browser-based access to the application
+  startWebServer: (port: number): Promise<IPCResult<{ running: boolean; port?: number; url?: string; error?: string }>> =>
+    ipcRenderer.invoke(IPC_CHANNELS.WEB_SERVER_START, port),
+
+  stopWebServer: (): Promise<IPCResult<void>> =>
+    ipcRenderer.invoke(IPC_CHANNELS.WEB_SERVER_STOP),
+
+  getWebServerStatus: (): Promise<IPCResult<{ running: boolean; port?: number; url?: string; error?: string }>> =>
+    ipcRenderer.invoke(IPC_CHANNELS.WEB_SERVER_STATUS)
 });
