@@ -1,7 +1,9 @@
 import { useTranslation } from 'react-i18next';
 import { useEffect, useState } from 'react';
+import { Copy, Check } from 'lucide-react';
 import { Label } from '../ui/label';
 import { Input } from '../ui/input';
+import { Button } from '../ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
 import { Switch } from '../ui/switch';
 import { SettingsSection } from './SettingsSection';
@@ -24,7 +26,7 @@ import type {
 interface GeneralSettingsProps {
   settings: AppSettings;
   onSettingsChange: (settings: AppSettings) => void;
-  section: 'agent' | 'paths';
+  section: 'agent' | 'paths' | 'browserAccess';
 }
 
 /**
@@ -241,6 +243,90 @@ export function GeneralSettings({ settings, onSettingsChange, section }: General
           </div>
         </SettingsSection>
       </div>
+    );
+  }
+
+  // Browser Access section
+  if (section === 'browserAccess') {
+    // Default port if not set
+    const defaultPort = 3000;
+    const currentPort = settings.browserAccessPort ?? defaultPort;
+
+    // Port validation helper
+    const isValidPort = (port: number): boolean => {
+      return port >= 1024 && port <= 65535;
+    };
+
+    return (
+      <SettingsSection
+        title={t('browserAccess.title')}
+        description={t('browserAccess.description')}
+      >
+        <div className="space-y-6">
+          {/* Enable/Disable Toggle */}
+          <div className="flex items-center justify-between p-4 rounded-lg border border-border max-w-md">
+            <div className="space-y-1">
+              <Label htmlFor="browserAccessEnabled" className="font-medium text-foreground">
+                {t('browserAccess.toggle.label')}
+              </Label>
+              <p className="text-sm text-muted-foreground">
+                {t('browserAccess.toggle.description')}
+              </p>
+            </div>
+            <Switch
+              id="browserAccessEnabled"
+              checked={settings.browserAccessEnabled ?? false}
+              onCheckedChange={(checked) =>
+                onSettingsChange({ ...settings, browserAccessEnabled: checked })
+              }
+            />
+          </div>
+
+          {/* Port Configuration */}
+          <div className="space-y-3">
+            <Label htmlFor="browserAccessPort" className="text-sm font-medium text-foreground">
+              {t('browserAccess.port.label')}
+            </Label>
+            <p className="text-sm text-muted-foreground">
+              {t('browserAccess.port.description')}
+            </p>
+            <Input
+              id="browserAccessPort"
+              type="number"
+              min={1024}
+              max={65535}
+              placeholder={t('browserAccess.port.placeholder')}
+              className="w-full max-w-xs"
+              value={currentPort}
+              onChange={(e) => {
+                const port = parseInt(e.target.value, 10);
+                if (!isNaN(port)) {
+                  onSettingsChange({ ...settings, browserAccessPort: port });
+                }
+              }}
+            />
+            {!isValidPort(currentPort) && (
+              <p className="text-sm text-destructive">
+                {t('browserAccess.errors.invalidPort')}
+              </p>
+            )}
+          </div>
+
+          {/* Status Display - placeholder for subtask-5-3 */}
+          <div className="space-y-3">
+            <Label className="text-sm font-medium text-foreground">
+              {t('browserAccess.status.label')}
+            </Label>
+            <div className="flex items-center gap-3 p-3 rounded-lg bg-muted/50 max-w-md">
+              <div className="flex-1">
+                <span className="text-sm text-muted-foreground">
+                  {t('browserAccess.status.stopped')}
+                </span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </SettingsSection>
     );
   }
 
