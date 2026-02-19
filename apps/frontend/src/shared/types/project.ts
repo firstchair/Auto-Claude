@@ -398,6 +398,12 @@ export interface CustomMcpServer {
   headers?: Record<string, string>;
   /** Optional description shown in UI */
   description?: string;
+  /** Environment variables passed to the server process (for command-type) */
+  env?: Record<string, string>;
+  /** Where this server was imported from (undefined = manually created) */
+  source?: 'claude-code' | 'manual';
+  /** Scope of the source config (for imported servers) */
+  sourceScope?: 'global' | 'local' | 'project';
 }
 
 /**
@@ -439,6 +445,55 @@ export interface McpTestConnectionResult {
   tools?: string[];
   /** Response time in milliseconds */
   responseTime?: number;
+}
+
+// ============================================
+// Claude Code MCP Import Types
+// ============================================
+
+/** Discovered MCP server from Claude Code config */
+export interface DiscoveredMcpServer {
+  /** Original server name from Claude Code config */
+  name: string;
+  /** Generated ID (kebab-case of name) */
+  id: string;
+  /** Server type mapped to Auto Claude format */
+  type: 'command' | 'http';
+  /** Command (for command-type servers) */
+  command?: string;
+  /** Arguments */
+  args?: string[];
+  /** URL (for http-type servers) */
+  url?: string;
+  /** HTTP headers */
+  headers?: Record<string, string>;
+  /** Environment variables for the server process */
+  env?: Record<string, string>;
+  /** Where this server was found */
+  sourceScope: 'global' | 'local' | 'project';
+  /** Source config file path */
+  sourceFile: string;
+  /** Whether this server is compatible with Auto Claude's security requirements */
+  isCompatible: boolean;
+  /** Reason for incompatibility (if not compatible) */
+  incompatibleReason?: string;
+  /** Whether a server with this ID is already imported */
+  alreadyImported: boolean;
+  /** Whether config contains unresolved environment variable references */
+  hasUnresolvedEnvVars: boolean;
+}
+
+/** Result from the discover IPC call */
+export interface DiscoveredMcpServers {
+  /** All discovered servers across all sources */
+  servers: DiscoveredMcpServer[];
+  /** Files that were checked */
+  sourcesChecked: Array<{
+    file: string;
+    exists: boolean;
+    error?: string;
+    serverCount: number;
+  }>;
 }
 
 // Auto Claude Initialization Types
