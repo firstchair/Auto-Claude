@@ -551,6 +551,9 @@ export const IPC_CHANNELS = {
   CLAUDE_CODE_GET_INSTALLATIONS: 'claudeCode:getInstallations',
   CLAUDE_CODE_SET_ACTIVE_PATH: 'claudeCode:setActivePath',
 
+  // Claude Code MCP import
+  CLAUDE_CODE_MCP_DISCOVER: 'claudeCode:mcp:discover',  // Discover MCP servers from Claude Code config files
+
   // MCP Server health checks
   MCP_CHECK_HEALTH: 'mcp:checkHealth',           // Quick connectivity check
   MCP_TEST_CONNECTION: 'mcp:testConnection',     // Full MCP protocol test
