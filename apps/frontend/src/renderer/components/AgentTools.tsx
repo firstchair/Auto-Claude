@@ -32,7 +32,8 @@ import {
   Terminal,
   Loader2,
   RefreshCw,
-  Lock
+  Lock,
+  Download
 } from 'lucide-react';
 import { useState, useMemo, useEffect, useCallback } from 'react';
 import { ScrollArea } from './ui/scroll-area';
@@ -49,6 +50,7 @@ import { useSettingsStore } from '../stores/settings-store';
 import { useProjectStore } from '../stores/project-store';
 import type { ProjectEnvConfig, AgentMcpOverride, CustomMcpServer, McpHealthCheckResult, } from '../../shared/types';
 import { CustomMcpDialog } from './CustomMcpDialog';
+import { ImportMcpDialog } from './ImportMcpDialog';
 import { useTranslation } from 'react-i18next';
 import {
   AVAILABLE_MODELS,
@@ -657,6 +659,7 @@ export function AgentTools() {
   // Custom MCP server dialog state
   const [showCustomMcpDialog, setShowCustomMcpDialog] = useState(false);
   const [editingCustomServer, setEditingCustomServer] = useState<CustomMcpServer | null>(null);
+  const [showImportMcpDialog, setShowImportMcpDialog] = useState(false);
 
   // Health status tracking for custom servers
   const [serverHealthStatus, setServerHealthStatus] = useState<Record<string, McpHealthCheckResult>>({});
@@ -837,6 +840,27 @@ export function AgentTools() {
       });
     } catch (error) {
       console.error('Failed to save custom MCP server:', error);
+      setEnvConfig((prev) => prev ? { ...prev, customMcpServers: currentServers } : null);
+    }
+  }, [selectedProjectId, envConfig]);
+
+  // Handle importing MCP servers from Claude Code
+  const handleImportMcpServers = useCallback(async (servers: CustomMcpServer[]) => {
+    if (!selectedProjectId || !envConfig) return;
+
+    const currentServers = envConfig.customMcpServers || [];
+    const newServers = [...currentServers, ...servers];
+
+    // Optimistic update
+    setEnvConfig((prev) => prev ? { ...prev, customMcpServers: newServers } : null);
+
+    // Save to backend
+    try {
+      await window.electronAPI.updateProjectEnv(selectedProjectId, {
+        customMcpServers: newServers,
+      });
+    } catch (error) {
+      console.error('Failed to import MCP servers:', error);
       setEnvConfig((prev) => prev ? { ...prev, customMcpServers: currentServers } : null);
     }
   }, [selectedProjectId, envConfig]);
@@ -1201,14 +1225,24 @@ export function AgentTools() {
                         {t('settings:mcp.customServers')}
                       </span>
                     </div>
-                    <button
-                      type="button"
-                      onClick={() => { setEditingCustomServer(null); setShowCustomMcpDialog(true); }}
-                      className="flex items-center gap-1 text-xs text-primary hover:text-primary/80 transition-colors"
-                    >
-                      <Plus className="h-3 w-3" />
-                      {t('settings:mcp.addCustomServer')}
-                    </button>
+                    <div className="flex items-center gap-3">
+                      <button
+                        type="button"
+                        onClick={() => setShowImportMcpDialog(true)}
+                        className="flex items-center gap-1 text-xs text-primary hover:text-primary/80 transition-colors"
+                      >
+                        <Download className="h-3 w-3" />
+                        {t('settings:mcp.importFromClaudeCode')}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => { setEditingCustomServer(null); setShowCustomMcpDialog(true); }}
+                        className="flex items-center gap-1 text-xs text-primary hover:text-primary/80 transition-colors"
+                      >
+                        <Plus className="h-3 w-3" />
+                        {t('settings:mcp.addCustomServer')}
+                      </button>
+                    </div>
                   </div>
 
                   {(envConfig.customMcpServers?.length ?? 0) > 0 ? (
@@ -1380,6 +1414,15 @@ export function AgentTools() {
         server={editingCustomServer}
         existingIds={(envConfig?.customMcpServers || []).map(s => s.id)}
         onSave={handleSaveCustomServer}
+      />
+
+      {/* Import MCP Servers from Claude Code Dialog */}
+      <ImportMcpDialog
+        open={showImportMcpDialog}
+        onOpenChange={setShowImportMcpDialog}
+        projectDir={selectedProject?.path || ''}
+        existingServerIds={(envConfig?.customMcpServers || []).map(s => s.id)}
+        onImport={handleImportMcpServers}
       />
     </div>
   );
