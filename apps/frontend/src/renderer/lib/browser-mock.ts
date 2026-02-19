@@ -337,6 +337,12 @@ const browserMockAPI: ElectronAPI = {
     }
   }),
 
+  // Claude Code MCP Import
+  discoverClaudeCodeMcpServers: async () => ({
+    success: true,
+    data: { servers: [], sourcesChecked: [] }
+  }),
+
   // Screenshot capture operations
   getSources: async () => ({
     success: true,

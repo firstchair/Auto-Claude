@@ -24,7 +24,8 @@ import type {
   GitStatus,
   CustomMcpServer,
   McpHealthCheckResult,
-  McpTestConnectionResult
+  McpTestConnectionResult,
+  DiscoveredMcpServers
 } from './project';
 import type { ScreenshotSource } from './screenshot';
 import type {
@@ -914,6 +915,9 @@ export interface ElectronAPI {
   // MCP Server health check operations
   checkMcpHealth: (server: CustomMcpServer) => Promise<IPCResult<McpHealthCheckResult>>;
   testMcpConnection: (server: CustomMcpServer) => Promise<IPCResult<McpTestConnectionResult>>;
+
+  // Claude Code MCP Import
+  discoverClaudeCodeMcpServers: (projectDir: string, existingServerIds: string[]) => Promise<IPCResult<DiscoveredMcpServers>>;
 
   // Screenshot capture operations
   getSources: () => Promise<IPCResult<ScreenshotSource[]> & { devMode?: boolean }>;
