@@ -33,6 +33,7 @@ import { registerClaudeCodeHandlers } from './claude-code-handlers';
 import { registerMcpHandlers } from './mcp-handlers';
 import { registerProfileHandlers } from './profile-handlers';
 import { registerScreenshotHandlers } from './screenshot-handlers';
+import { registerClaudeCodeMcpHandlers } from './claude-code-mcp-handlers';
 import { registerTerminalWorktreeIpcHandlers } from './terminal';
 import { notificationService } from '../notification-service';
 
@@ -116,6 +117,9 @@ export function setupIpcHandlers(
   // MCP server health check handlers
   registerMcpHandlers();
 
+  // Claude Code MCP server discovery and import handlers
+  registerClaudeCodeMcpHandlers();
+
   // API Profile handlers (custom Anthropic-compatible endpoints)
   registerProfileHandlers();
 
@@ -149,5 +153,6 @@ export {
   registerClaudeCodeHandlers,
   registerMcpHandlers,
   registerProfileHandlers,
-  registerScreenshotHandlers
+  registerScreenshotHandlers,
+  registerClaudeCodeMcpHandlers
 };
