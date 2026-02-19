@@ -289,6 +289,30 @@ def _validate_custom_mcp_server(server: dict) -> bool:
     if "description" in server and not isinstance(server.get("description"), str):
         return False
 
+    # Optional env must be a dict of string keys and string values if present
+    if "env" in server:
+        if not isinstance(server["env"], dict):
+            logger.warning("Custom MCP server 'env' field must be a dict")
+            return False
+        if not all(
+            isinstance(k, str) and isinstance(v, str)
+            for k, v in server["env"].items()
+        ):
+            logger.warning("Custom MCP server 'env' field must have string keys and values")
+            return False
+
+    # Optional source must be a known string if present
+    if "source" in server:
+        if server["source"] not in ("claude-code", "manual"):
+            logger.warning(f"Invalid MCP server source: {server.get('source')}")
+            return False
+
+    # Optional sourceScope must be a known string if present
+    if "sourceScope" in server:
+        if server["sourceScope"] not in ("global", "local", "project"):
+            logger.warning(f"Invalid MCP server sourceScope: {server.get('sourceScope')}")
+            return False
+
     # Reject any unexpected fields that could be exploited
     allowed_fields = {
         "id",
@@ -299,6 +323,9 @@ def _validate_custom_mcp_server(server: dict) -> bool:
         "url",
         "headers",
         "description",
+        "env",
+        "source",
+        "sourceScope",
     }
     unexpected_fields = set(server.keys()) - allowed_fields
     if unexpected_fields:
@@ -756,10 +783,13 @@ def create_client(
             continue
         server_type = custom.get("type", "command")
         if server_type == "command":
-            mcp_servers[server_id] = {
+            server_config = {
                 "command": custom.get("command", "npx"),
                 "args": custom.get("args", []),
             }
+            if custom.get("env"):
+                server_config["env"] = custom["env"]
+            mcp_servers[server_id] = server_config
         elif server_type == "http":
             server_config = {
                 "type": "http",
